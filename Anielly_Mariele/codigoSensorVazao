@@ -1,0 +1,62 @@
+// Definição do pino do sensor e de interrupção
+const int PINO_SENSOR = D5; // Pino D5 da NodeMCU
+
+// Variáveis para contagem de pulsos e cálculo de fluxo/volume
+volatile unsigned long contador = 0;
+float fluxo = 0;
+float volume_total = 0;
+unsigned long tempo_antes = 0;
+
+// Fator de calibração para conversão do valor lido (ajuste conforme necessário)
+const float FATOR_CALIBRACAO = 4.5;
+
+void setup() {
+  // Inicialização do monitor serial
+  Serial.begin(9600);
+  while (!Serial) {} // Aguarda até que a porta serial esteja pronta
+  
+  Serial.println("Medidor de Fluxo e Volume de Líquidos - Arduino\n");
+
+  // Configuração do pino do sensor como entrada com pull-up interno
+  pinMode(PINO_SENSOR, INPUT_PULLUP);
+
+  // Configuração da interrupção para contar pulsos
+  attachInterrupt(digitalPinToInterrupt(PINO_SENSOR), contador_pulso, FALLING);
+}
+
+void loop() {
+  // Executa a contagem de pulsos e cálculos a cada segundo
+  if (millis() - tempo_antes > 1000) {
+    // Desabilita a interrupção para leitura segura do contador
+    detachInterrupt(digitalPinToInterrupt(PINO_SENSOR));
+
+    // Cálculo do fluxo em L/min
+    fluxo = (contador * 60.0) / (millis() - tempo_antes) / FATOR_CALIBRACAO;
+
+    // Exibição do fluxo atual
+    Serial.print("Fluxo: ");
+    Serial.print(fluxo);
+    Serial.println(" L/min");
+
+    // Cálculo do volume total em Litros
+    float volume = fluxo / 60.0; // Volume em Litros por segundo
+    volume_total += volume;
+
+    // Exibição do volume acumulado
+    Serial.print("Volume total: ");
+    Serial.print(volume_total);
+    Serial.println(" L\n");
+
+    // Reinicializa o contador de pulsos
+    contador = 0;
+    tempo_antes = millis();
+
+    // Reabilita a interrupção para contar pulsos novamente
+    attachInterrupt(digitalPinToInterrupt(PINO_SENSOR), contador_pulso, FALLING);
+  }
+}
+
+// Função de interrupção para contar pulsos
+void contador_pulso() {
+  contador++;
+}
